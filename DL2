@@ -1,0 +1,68 @@
+#1
+import numpy as np
+from tensorflow.keras.datasets import imdb
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+#2
+# Load the IMDB dataset
+(X_train, y_train), (X_test, y_test) = imdb.load_data(num_words=10000)
+
+# Pad sequences to ensure all reviews are the same length
+X_train = pad_sequences(X_train, maxlen=200)
+X_test = pad_sequences(X_test, maxlen=200)
+
+# Convert to NumPy arrays
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+X_test = np.array(X_test)
+y_test = np.array(y_test)
+
+#3
+from tensorflow.keras import models, layers
+
+def build_model():
+    model = models.Sequential()
+    model.add(layers.Embedding(input_dim=10000, output_dim=128))  # Removed input_length
+    model.add(layers.LSTM(64, dropout=0.2, recurrent_dropout=0.2))
+    model.add(layers.Dense(1, activation='sigmoid'))
+
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+model = build_model()
+
+#4
+model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+#5
+loss, accuracy = model.evaluate(X_test, y_test)
+print(f'Accuracy: {accuracy * 100}')
+
+#6
+import json
+
+word_index = imdb.get_word_index()
+
+def decode_review(encoded_review):
+    reverse_word_index = {value: key for (key, value) in word_index.items()}
+    decoded_review = ' '.join([reverse_word_index.get(i - 3, '?') for i in encoded_review])
+    return decoded_review
+
+# Decode the first 3 reviews in the test set
+sample_reviews = [decode_review(X_test[i]) for i in range(3)]
+
+# Preprocess reviews
+def preprocess_reviews(reviews):
+    sequences = imdb.get_word_index()
+    indices = [[sequences.get(word, 0) for word in review.split()] for review in reviews]
+    return pad_sequences(indices, maxlen=200)
+
+preprocessed_reviews = preprocess_reviews(sample_reviews)
+
+#7
+predictions = model.predict(preprocessed_reviews)
+
+# Output the predictions
+for review, prediction in zip(sample_reviews, predictions):
+    sentiment = 'Positive' if prediction > 0.5 else 'Negative'
+    print(f'Review: "{review}"\nPredicted Sentiment: {sentiment}\n')
